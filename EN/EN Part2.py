@@ -4,60 +4,62 @@ data=pd.read_csv('train',sep=' ',names=['word','state'],skip_blank_lines=False)
 data=data.fillna('Nil')
 observation=data['word']
 state=data['state']
-possible_state=list(set(state))
 
 
-def emission_parameter(x,y): # x is words, y is tags
-    count_y_x=0
-    count_y=0
-    for i in range(0,len(state)):
-        if state[i]==y:
-            count_y+=1
-            if observation[i]==x:
-                count_y_x+=1
-    return count_y_x/count_y
+def emission_parameter(data):
+    data1=data['state'].value_counts().reset_index(name='CountY')
+    data1=data1.rename(columns={'index':'state'})
+    data2=data.groupby(['word','state']).size().reset_index(name='CountY_X')
+    data=pd.merge(data1,data2)
+    data=data[['word','state','CountY','CountY_X']]
+    data['emission']=data['CountY_X']/data['CountY']
+    return data
 
+states=list(set(state))
+states.remove('Nil')
+UNK_list=[]
+for i in range(0,len(states)):
+    UNK_list.append('#UNK#')
+dic={'word':UNK_list,'state':states}
+data_UNK=pd.DataFrame(dic)
+def emission_parameter_UNK(data):
+    data=pd.concat([data,data_UNK])
+    data1=data['state'].value_counts().reset_index(name='CountY')
+    data1=data1.rename(columns={'index':'state'})
+    data2=data.groupby(['word','state']).size().reset_index(name='CountY_X')
+    data=pd.merge(data1,data2)
+    data=data[['word','state','CountY','CountY_X']]
+    data['CountY+k']=data['CountY']-0.5
+    data['emission']=data['CountY_X']/data['CountY+k']
+    for i in range(0,len(data['word'])):
+        if data['word'][i]=='#UNK#':
+            data['emission'][i]=data['emission'][i]/2
+    return data
 
-def emission_parameter_UNK(test,y): # y is tags, test is the test data that might not be in the training set
-    count_y_test=0
-    count_y=0
-    if test in observation:
-        for i in range(0,len(state)):
-            if state[i]==y:
-                count_y+=1
-                if observation[i]==test:
-                    count_y_test+=1
-        result=count_y_test/(count_y+0.5)
-    else:
-        for i in range(0,len(state)):
-            if state[i]==y:
-                count_y+=1
-        result=0.5/(count_y+0.5)
-    return result
+def prediction(test,data):
+    test=test['word']
+    output=[]
+    for i in range(0,len(test)):
+        if test[i] not in data['word'].to_list():
+            test[i]="#UNK#"
+    for j in range(0,len(test)):
+        data1=data.loc[data['word']==test[j]]
+        emission=0
+        state=''
+        for index,row in data1.iterrows():
+            if row['emission']>emission:
+                emission=row['emission']
+                state=row['state']
+        output.append(state)
+    return output
 
-
-def emission_prediction(test):
-    possibility=[]
-    for i in range(0,len(possible_state)):
-        p=emission_parameter_UNK(test,possible_state[i])
-        possibility.append(p)      
-    max_index=possibility.index(max(possibility))
-    return possible_state[max_index]
-
-
-dev_in=pd.read_csv('dev.in',sep=' ',names=['input'])               
-test_x=dev_in['input']
-test_x_prediction=[]
-for i in range(0,len(test_x)):
-    prediction=emission_prediction(test_x[i])
-    test_x_prediction.append(prediction)
+dev_in=pd.read_csv('dev.in',sep=' ',names=['word'])               
+train_set=emission_parameter_UNK(data)
+result=prediction(dev_in,train_set)
 
 with open('dev.p2.out','w') as f:
-    for i in range(0,len(test_x_prediction)):
-        f.write(test_x_prediction[i]+'\n')
+    for i in range(0,len(result)):
+        f.write(result[i]+'\n')
 f.close
-
-
+print('done')
     
-    
-           
