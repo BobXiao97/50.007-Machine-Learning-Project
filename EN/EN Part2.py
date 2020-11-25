@@ -22,6 +22,7 @@ for i in range(0,len(states)):
     UNK_list.append('#UNK#')
 dic={'word':UNK_list,'state':states}
 data_UNK=pd.DataFrame(dic)
+
 def emission_parameter_UNK(data):
     data=pd.concat([data,data_UNK])
     data1=data['state'].value_counts().reset_index(name='CountY')
@@ -59,7 +60,36 @@ result=prediction(dev_in,train_set)
 
 with open('dev.p2.out','w') as f:
     for i in range(0,len(result)):
-        f.write(result[i]+'\n')
+        f.write(dev_in['word'][i]+' '+result[i]+'\n')
 f.close
-print('done')
+
+def evaluation(pred,answer):
+    x=pred['state'].to_list()
+    y=answer['state'].to_list()
+    correct=0
+    for i in range(0,len(x)):
+        if x[i]==y[i]:
+            if x[i][0]!='O':
+                correct+=1    
+
+    total_pred=0
+    for j in range(0,len(x)):
+        if x[j][0]!='O':
+            total_pred+=1
+            
+    total_answer=0
+    for k in range(0,len(y)):
+        if y[k][0]!='O':
+            total_answer+=1
+    precision=correct/total_pred
+    recall=correct/total_answer
+    F=2/((1/precision)+(1/recall))
+    return precision,recall,F
+
+dev_out=pd.read_csv('dev.out',sep=' ',names=['word','state'])
+dev_p2_out=pd.read_csv('dev.p2.out',sep=' ',names=['word','state'])
+precision,recall,F=evaluation(dev_p2_out,dev_out)
+print('Precision:'+str(precision))
+print('Recall:'+str(recall))
+print('F:'+str(F))  
     
