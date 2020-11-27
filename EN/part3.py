@@ -1,4 +1,5 @@
 import pandas as pd
+import copy
 data=pd.read_csv('train',sep=' ',names=['word','state'],skip_blank_lines=False)
 data=data.fillna('Nil')
 dic={'word':['Nil'],'state':['Nil']}
@@ -56,37 +57,7 @@ dic={'word':['Nil']}
 first_line=pd.DataFrame(dic)
 dev_in=pd.concat([first_line,dev_in],ignore_index=True)
 
-def viterbi(parameters,input_data):
-    input_data=input_data['word'].to_list()
-    for i in range(0,len(input_data)):
-        if input_data[i] not in data['word'].to_list():
-            input_data[i]="#UNK#"
-    route=[]
-    score=[]
-    for j in range(0,len(state)):
-        route.append([])
-        route[-1].append('Nil')
-        score.append(1)
-        route[-1].append(state[j])
-        data1=parameters.loc[parameters['Yi']=='Nil']
-        for index,row in data1.iterrows():
-            if row['Yj']==state[j]:
-                score[j]=score[j]*row['probability']
-    for k in range(2,len(input_data)):
-        data1=parameters.loc[parameters['word']==input_data[k]]
-        for l in range(0,len(route)):
-            data2=data1.loc[parameters['Yi']==route[l][-1]]
-            prob=data2['probability'].to_list()
-            st=data2['Yj']
-            p=max(prob)
-            score[l]=score[l]*p
-            index=prob.index(max(prob))
-            route[l].append(st[index])
-    index=score.index(max(score))
-    result=route[index]
-    return result
 
-print(viterbi(parameter,dev_in))
 
 
     
