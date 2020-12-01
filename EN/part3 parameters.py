@@ -1,5 +1,6 @@
 import pandas as pd
 import copy
+import numpy as np
 data=pd.read_csv('train',sep=' ',names=['word','state'],skip_blank_lines=False)
 data=data.fillna('Nil')
 dic={'word':['Nil'],'state':['Nil']}
@@ -20,6 +21,22 @@ def transition_parameter(data):
     transition=data4[['Yi','Yj','Count_Yi','Count_Yi_j']]
     transition['transition']=transition['Count_Yi_j']/transition['Count_Yi']
     return transition
+
+tran=transition_parameter(data)
+tran=tran.drop(['Count_Yi','Count_Yi_j'],axis=1)
+yi=tran['Yi']
+yi=list(set(yi))
+a=len(yi)
+zeros_tran=np.zeros((a,a))
+for i in range(0,a):
+    tran1=tran.loc[tran['Yi']==yi[i]]
+    for j in range(0,a):
+        tran2=tran1.loc[tran1['Yj']==yi[j]]
+        tran_para=tran2['transition']
+        if len(tran_para)==1:
+            zeros_tran[i][j]=tran_para
+tran_table=pd.DataFrame(zeros_tran,index=yi,columns=yi).sort_index(axis=0)
+tran_table.to_csv('transition parameter.csv')
 
 states=list(set(state))
 states.remove('Nil')
@@ -43,21 +60,20 @@ def emission_parameter_UNK(data):
             data['emission'][i]=data['emission'][i]/2
     return data
 
-tran=transition_parameter(data)
-emi=emission_parameter_UNK(data).rename(columns={'state':"Yj"})
-parameter=pd.merge(tran,emi)
-parameter=parameter.drop(['Count_Yi','Count_Yi_j','CountY','CountY+k','CountY_X'],axis=1)
-parameter=parameter[['word','Yi','Yj','transition','emission']]
-parameter['probability']=parameter['transition']*parameter['emission']
-parameter=parameter.drop(['transition','emission'],axis=1) #Yi: current state, Yj: next state, probability:transition*emission 
+emi=emission_parameter_UNK(data)
+emi=emi.drop(['CountY','CountY_X','CountY+k'],axis=1)
+word=emi['word']
+word=list(set(word))
+b=len(word)
+zeros_emi=np.zeros((a,b))
+for i in range(0,a):
+    emi1=emi.loc[emi['state']==yi[i]]
+    for j in range(0,b):
+        emi2=emi1.loc[emi1['word']==word[j]]
+        emi_para=emi2['emission']
+        if len(emi_para)==1:
+            zeros_emi[i][j]=emi_para
+emi_table=pd.DataFrame(zeros_emi,index=yi,columns=word).sort_index(axis=0)
+emi_table.to_csv('emission parameter.csv')
 
-dev_in=pd.read_csv('dev.in',sep=' ',names=['word'],skip_blank_lines=False) 
-dev_in=dev_in.fillna('Nil')
-dic={'word':['Nil']}
-first_line=pd.DataFrame(dic)
-dev_in=pd.concat([first_line,dev_in],ignore_index=True)
 
-
-
-
-    
