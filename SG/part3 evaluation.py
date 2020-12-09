@@ -6,17 +6,17 @@ def evaluation(pred,answer):
     correct=0
     for i in range(0,len(y)):
         if x[i]==y[i]:
-            if x[i][0]!='O':
+            if x[i][0]!='O' and x[i]!='Nil':
                 correct+=1    
 
     total_pred=0
     for j in range(0,len(x)):
-        if x[j][0]!='O':
+        if x[j][0]!='O' and x[j]!='Nil':
             total_pred+=1
             
     total_answer=0
     for k in range(0,len(y)):
-        if y[k][0]!='O':
+        if y[k][0]!='O' and y[k]!='Nil':
             total_answer+=1
     precision=correct/total_pred
     recall=correct/total_answer
