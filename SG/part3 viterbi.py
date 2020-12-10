@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import copy
+
 def viterbi(obs,states,trans_p,emit_p):
     v=[]
     fst=obs[0]
@@ -16,10 +16,11 @@ def viterbi(obs,states,trans_p,emit_p):
         cc1=pd.Series(cc,index=states)
         v.append(cc1)
  
-    result=[]
-    for vector in v :
-        p=vector
-        p1=p.sort_values(ascending=False)   
+    result=[{'Nil':'Nil'}]
+    for i in range(len(v)-2,-1,-1):
+        b=list(result[-1])
+        a=v[i]*trans_p[b[0]]
+        p1=a.sort_values(ascending=False)
         p2=p1[:1]
         result.append(dict(p2))
     return result
@@ -51,11 +52,15 @@ emi_p=pd.read_csv('emission parameter.csv',index_col=0)
 key=[]
 for i in range(0,len(dev_in_list)):
     result=viterbi(dev_in_list[i],states,trans_p,emi_p)
+    temp=[]
     for j in range(0,len(result)):
         k=list(result[j].keys())
-        key.append(k[0])
+        temp.append(k[0])
+    temp=list(reversed(temp))
+    key.append(temp)
 
 with open('dev.p3.out','w') as f:
-    for i in range(0,len(key)):
-        f.write(key[i]+'\n')
+   for i in range(0,len(key)):
+       for j in range(0,len(key[i])):
+           f.write(key[i][j]+'\n')
 f.close 
