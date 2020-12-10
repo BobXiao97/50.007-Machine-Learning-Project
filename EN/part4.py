@@ -7,7 +7,6 @@ l = ['START', 'B-ADJP', 'B-ADVP', 'B-CONJP', 'B-INTJ', 'B-LST', 'B-NP',
        'I-NP','I-PP','I-PRT','I-SBAR','I-UCP','I-VP','O', 'STOP']
 
 def train():
-    ############################# initialize parameter ####################################
 
     # store emission parameters
     e_count = ({}, {}, {}, {}, {}, {}, {}, {},{}, {}, {}, {}, {}, {}, {}, {},{}, {}, {}, {}, {}, {}, {}, {})  ## 1st dict empty (start no emission)
@@ -79,11 +78,9 @@ def train():
 
 
 def forwardalgo(prev_layer, x, k):
-    """inputs: prev_layer: list of list of top k best
-               x: current word
-               k: top k best
-       output: list of top k best [score, partent_index (0, 6), parent_sub (0, k-1)] for all states, len=7
-    """
+       # inputs: prev_layer: list of list of top k best, x: current word, k: top k best
+       # output: list of top k best [score, partent_index (0, 6), parent_sub (0, k-1)] for all states, len=7
+
     layer = []
     for i in range(1, 23):  #
         temp_score = []
@@ -107,10 +104,9 @@ def forwardalgo(prev_layer, x, k):
 
 
 def viterbi(X, k):
-    """input:  X, words list
-               k, top k best
-       output: Y, sentiment list
-    """
+       # input:  X: words list, k: top k best
+       # output: Y: tag list
+
     # initialization
     n = len(X)
     Y = []
