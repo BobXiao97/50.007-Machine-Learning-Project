@@ -1,243 +1,186 @@
-import pandas as pd
-import numpy as np
-import copy
+# for quick access, to get the location of each tags in the dictionary
+dic = {'START': 0, 'B-ADJP': 1, 'B-ADVP': 2, 'B-CONJP': 3, 'B-INTJ': 4, 'B-LST': 5, 'B-NP': 6,
+       'B-PRT':7,'B-SBAR':8,'B-UCP':9,'B-VP':10,'I-ADJP':11,'I-ADVP':12,'I-CONJP':13,'I-INTJ':14,'I-LST':15,
+       'I-NP':16,'I-PP':17,'I-PRT':18,'I-SBAR':19,'I-UCP':20,'I-VP':21,'O': 22, 'STOP': 23}
+l = ['START', 'B-ADJP', 'B-ADVP', 'B-CONJP', 'B-INTJ', 'B-LST', 'B-NP',
+       'B-PRT','B-SBAR','B-UCP','B-VP','I-ADJP','I-ADVP','I-CONJP','I-INTJ','I-LST',
+       'I-NP','I-PP','I-PRT','I-SBAR','I-UCP','I-VP','O', 'STOP']
 
-possible_states = ["O","B-ADJP", "B-ADVP", "B-CONJP", "B-INTJ", "B-LST", "B-NP","B-PP","B-PRT","B-SBAR",
-                   "B-UCP","B-VP","I-ADJP", "I-ADVP", "I-CONJP", "I-INTJ", "I-LST", "I-NP","I-PP","I-PRT",
-                   "I-SBAR","I-UCP","I-VP","Nil"]
+def train():
+    ############################# initialize parameter ####################################
 
-def viterbi(obs, states, trans_p, emit_p):
-    v = []
-    fst = obs[0]
-    vn = emit_p[fst]
-    v.append(vn)
+    # store emission parameters
+    e_count = ({}, {}, {}, {}, {}, {}, {}, {},{}, {}, {}, {}, {}, {}, {}, {},{}, {}, {}, {}, {}, {}, {}, {})  ## 1st dict empty (start no emission)
+    e_param = ({}, {}, {}, {}, {}, {}, {}, {},{}, {}, {}, {}, {}, {}, {}, {},{}, {}, {}, {}, {}, {}, {}, {})  ## 1st dict empty (start no emission)
 
-    for t in range(1, len(obs)):
-        tp = emit_p[obs[t]]
-        cc = []
-        state_pos = ""
-        val = 0
-        for y in states:
-            print(y)
-            gv = v[t - 1] * trans_p[y] * tp.loc[y]
-            cc.append(gv.max())
-        cc1 = pd.Series(cc, index=states)
-        v.append(cc1)
+    # store transition parameters
+    # initialize as a 25*24 matrix of zeros
+    w, h = 25, 24
+    t_param = [[0] * w for i in range(h)]
 
-    result = []
-    for vector in v:
-        p = vector
-        p1 = p.sort_values(ascending=False)
-        p2 = p1[:1]
-        result.append(dict(p2))
-    return result
+    count = [0] * 24
 
+    ## read and parse file
+    train_file = open('train', 'r')
+    u = 'START'
+    obs_space = set()
 
-data = pd.read_csv('train', sep=' ', names=['word', 'state'], skip_blank_lines=False)
-data = data.fillna('Nil')
-observation = data['word']
-state = data['state']
-states = list(set(state))
-
-dev_in = pd.read_csv('dev.in', sep=' ', names=['word'], skip_blank_lines=False)
-dic = {'word': ['Nil']}
-first_line = pd.DataFrame(dic)
-dev_in = pd.concat([first_line, dev_in], ignore_index=True)
-dev_in_list = np.split(dev_in, dev_in[dev_in.isnull().all(1)].index)
-for i in range(1, len(dev_in_list)):
-    dev_in_list[i] = dev_in_list[i].fillna('Nil')
-for j in range(0, len(dev_in_list) - 1):
-    dev_in_list[j] = pd.concat([dev_in_list[j], first_line], ignore_index=True)
-
-for i in range(0, len(dev_in_list)):
-    dev_in_list[i] = dev_in_list[i]['word'].to_list()
-    for j in range(0, len(dev_in_list[i])):
-        if dev_in_list[i][j] not in observation.to_list():
-            dev_in_list[i][j] = '#UNK#'
-trans_p = pd.read_csv('transition parameter.csv', index_col=0)
-emi_p = pd.read_csv('emission parameter.csv', index_col=0)
-
-key = []
-for i in range(0, len(dev_in_list)):
-    result = viterbi(dev_in_list[i], states, trans_p, emi_p)
-    for j in range(0, len(result)):
-        k = list(result[j].keys())
-        key.append(k[0])
-
-with open('dev.p4.out', 'w') as f:
-    for i in range(0, len(key)):
-        f.write(key[i] + '\n')
-f.close
-
-def emis_prob(state, word, training_data, emis_dict):
-    if (state, word) in emis_dict.keys():
-        return emis_dict[(state, word)]
-    else:
-        count_emission = 0 # count the emission from state to word
-        count_state = 1
-        count_word = 0
-
-        for tweet in training_data:
-            for j in range(len(tweet)):
-                if tweet[j].split(" ")[0] == word:
-                    count_word += 1
-                if tweet[j].split(" ")[1] == state:
-                    count_state += 1
-                    if tweet[j].split(" ")[0] == word:
-                        count_emission += 1
-
-        if count_word == 0:
-            result =  float(1/count_state)
-        else:
-            result = float(count_emission/count_state)
-
-        emis_dict[(state, word)] = result
-        return result
-
-
-def trans_prob(state1, state2, training_data, trans_dict):
-    if (state1, state2) in trans_dict.keys():
-        return trans_dict[(state1, state2)]
-    else:
-        count_transition = 0 # count the transition from state1 to state 2
-        count_state1 = 0
-
-        if state1 == 'start':
-            count_state1 = len(training_data)
-            for tweet in training_data:
-                if len(tweet[0].split(" ")) > 1 and tweet[0].split(" ")[1] == state2:
-                    count_transition += 1
-
-        elif state2 == 'stop':
-            for tweet in training_data:
-                for j in range(len(tweet)):
-                    if len(tweet[j].split(" ")) > 1  and tweet[j].split(" ")[1] == state1:
-                        count_state1 += 1
-                        if j == len(tweet) - 1:
-                            count_transition += 1
-
-        elif state1 == 'stop' or state2 == 'start':
-            trans_dict[(state1, state2)] = 0
-            return 0
-
-        else:
-            for tweet in training_data:
-                for j in range(len(tweet)-1):
-                    if len(tweet[j].split(" ")) > 1 and tweet[j].split(" ")[1] == state1:
-                        count_state1 += 1
-                        if tweet[j+1].split(" ")[1] == state2:
-                            count_transition += 1
-
-        result = float(count_transition/count_state1)
-        trans_dict[(state1, state2)] = result
-        return result
-
-
-def viterbi_topK_kth_label(dev_datapath, training_datapath, k, os):
-    trans_dict = {}
-    emis_dict = {}
-    training_data = Data_processor(training_datapath).data
-
-    if os == "W":
-        outpath = dev_datapath.rsplit("\\",maxsplit=1)[0] + "\\dev.p4.out"
-    else:
-        outpath = dev_datapath.rsplit("/",maxsplit=1)[0] + "/dev.p4.out"
-
-    outfile = open(outpath, 'w', encoding='utf8')
-    dev_data = Data_processor(dev_datapath).data
-    total_tweets = len(dev_data)
-
-    for tweet in range(total_tweets):
-        score_dict = {}
-        top_k_list = viterbi_topK_end(dev_data[tweet], k, emis_dict, trans_dict, training_data, score_dict)
-        top_k_list = sorted(top_k_list, key=lambda x:x[1])
-        kth_seq = top_k_list[0]
-        tags = kth_seq[0].split(" ")
-
-        for word in range(len(tags)):
-            output = dev_data[tweet][word] + " " + tags[word] + "\n"
-            outfile.write(output)
-
-        outfile.write("\n")
-        print(str(tweet+1) + "/" + str(total_tweets) + " done")
-
-    print("Labelling completed!")
-    outfile.close()
-
-
-def viterbi_topK_start(sequence, state, emis_dict, trans_dict, training_data, score_dict):
-    if (len(sequence), state) in score_dict.keys():
-        return score_dict[(len(sequence), state)]
-    else:
-        score = trans_prob("start", state, training_data, trans_dict) * emis_prob(state, sequence[-1], training_data, emis_dict)
-        score_dict[(len(sequence), state)] = [(state, score)]
-        return [(state, score)]
-
-
-def viterbi_topK_end(sequence, k, emis_dict, trans_dict, training_data, score_dict):
-    top_k_list = []
-
-    for state in possible_states:
-        if len(sequence) == 1:
-            previous_list = viterbi_topK_start(sequence, state, emis_dict, trans_dict, training_data, score_dict)
-        else:
-            previous_list = viterbi_topK_recursive(sequence, k, state, emis_dict, trans_dict, training_data, score_dict)
-
-        for j in previous_list:
-            score = j[1] * trans_prob(state, "stop", training_data, trans_dict)
-            if score != 0:
-                if len(top_k_list) < k:
-                    top_k_list.append((j[0], score))
-                else:
-                    index = 0
-                    for l in range(1, len(top_k_list)):
-                        if top_k_list[l][1] < top_k_list[index][1]:
-                            index = l
-                    if score > top_k_list[index][1]:
-                        top_k_list[index] = (j[0], score)
-
-    if len(top_k_list) == 0:
-        previous_O_list = viterbi_topK_recursive(sequence, k, "O", emis_dict, trans_dict, training_data, score_dict)
-        top_k_list.append((previous_O_list[0][0],0))
-    return top_k_list
-
-
-def viterbi_topK_recursive(sequence, k, state, emis_dict, trans_dict, training_data, score_dict):
-    if (len(sequence), state) in score_dict.keys():
-        return score_dict[(len(sequence), state)]
-    else:
-        k_list = []
-        for prev_state in possible_states:
-            if len(sequence) == 2:
-                previous_list = viterbi_topK_start(sequence[:-1], prev_state, emis_dict, trans_dict, training_data, score_dict)
+    for obs in train_file:
+        try:
+            obs, v = obs.split()
+            obs = obs.strip()
+            v = v.strip()
+            position = dic[v]  ## position: 1~23
+            # update e_count
+            if (obs in e_count[position]):
+                e_count[position][obs] += 1
             else:
-                previous_list = viterbi_topK_recursive(sequence[:-1], k, prev_state, emis_dict, trans_dict, training_data, score_dict)
+                e_count[position][obs] = 1
 
-            for z in previous_list:
-                score = z[1] * trans_prob(prev_state, state, training_data, trans_dict) * emis_prob(state, sequence[-1], training_data, emis_dict)
-                y_seq = z[0] + " " + state
-                if score != 0:
-                    if len(k_list) < k:
-                        k_list.append((y_seq, score))
-                    else:
-                        k_index = 0
-                        for l in range(1, len(k_list)):
-                            if k_list[l][1] < k_list[k_index][1]:
-                                k_index = l
-                        if score > k_list[k_index][1]:
-                            k_list[k_index] = (y_seq, score)
+            # update t_param
+            pre_position = dic[u]
+            t_param[pre_position][position] += 1
+            u = v
 
-        if len(k_list) == 0:
-            previous_O_list = viterbi_topK_recursive(sequence[:-1], k, "O", emis_dict, trans_dict, training_data, score_dict)
-            y_seq = previous_O_list[0][0] + " " + state
-            k_list.append((y_seq, 0))
+            # add into train_obs_set
+            if obs not in obs_space:
+                obs_space.add(obs)
 
-        score_dict[(len(sequence), state)] = k_list
-        return k_list
+        except:
+            # meaning the end of a sentence: x->STOP
+            pre_position = dic[u]
+            t_param[pre_position][24] += 1
+            u = 'START'
+
+    # get count(yi)+1
+    for i in range(0, 24):
+        temp_sum = 0
+        for j in range(0, 25):
+            temp_sum = temp_sum + t_param[i][j]
+        count[i] = temp_sum + 1
+
+    ## convert transision param to probablity
+    for i in range(0, 24):
+        for j in range(0, 24):
+            t_param[i][j] = 1.0 * t_param[i][j] / count[i]
+
+    # building emission params table: a list of 8 dicts, each dict has all obs as keys,
+    # value is 0 if obs never appears for this state
+
+    for i in range(1,23):
+        for obs in obs_space:
+            if obs not in e_count[i]:
+                e_param[i][obs] = 0.5 / max(count)
+            else:
+                e_param[i][obs] = 1.0 * e_count[i][obs] / count[i]
+
+    print(t_param)
+    return obs_space, e_param, t_param, count
 
 
-if len(sys.argv) < 5:
-    print("Not enough arguments pls input in order: (k-value, input data file path, training data file path, 'W'(for Windows) or 'L'(for Linux/Mac)")
-    sys.exit()
+def forwardalgo(prev_layer, x, k):
+    """inputs: prev_layer: list of list of top k best
+               x: current word
+               k: top k best
+       output: list of top k best [score, partent_index (0, 6), parent_sub (0, k-1)] for all states, len=7
+    """
+    layer = []
+    for i in range(1, 23):  #
+        temp_score = []
+        states = []
+        n = len(prev_layer[0])
+        # calculate emission first
+        if (x in obs_space):
+            b = e_param[i][x]
+        else:
+            b = 1.0 / count[i]
+        for j in range(1, 23):  # j:1-23
+            for sub in range(0, n): # n scores for each prev_node
+                # score = prev_layer*a*b
+                j_score = prev_layer[j-1][sub][0] * (t_param[j][i]) * b
+                temp_score.append([j_score, j-1, sub])  # 23*n scores with their parents
+        temp_score.sort(key=lambda tup:tup[0],reverse=True) # sort by j_score
+        for sub in range(0, k):   # get top k best
+            states.append(temp_score[sub])
+        layer.append(states)
+    return layer
 
-viterbi_topK_kth_label(3,"dev.in",int(sys.argv[1]),sys.argv[4])
+
+def viterbi(X, k):
+    """input:  X, words list
+               k, top k best
+       output: Y, sentiment list
+    """
+    # initialization
+    n = len(X)
+    Y = []
+    prev_layer = []
+    # calculate layer (start ->) 1
+    x = X[0]
+    for j in range(1, 23):
+        state = []
+        if (x in obs_space):
+            b = e_param[j][x]
+        else:
+            b = 1.0 / count[j]
+        prob = t_param[0][j] * b
+        state.append([prob, 0, 0])  # [prob, START, 1st best]
+        prev_layer.append(state)
+    layers = [[(1, -1, 0)], prev_layer]
+
+
+    # calculate layer (2,...,n)
+    for i in range(1, n):  # prev_layer: 1 -> n-1
+        layer = forwardalgo(layers[i], X[i], k)  # a list of top k best scores
+        layers.append(layer)
+
+
+    # calculate layer n+1 (STOP), and get top k best
+    layer = []
+    temp_score = []
+    states = []
+    failed = False
+    for j in range(1, 23):  # j:1-23
+        for sub in range(0, len(layers[n][0])):  # kth score for each prev_node
+            # score = prev_layer*a
+            t_score = layers[n][j - 1][sub][0] * (t_param[j][8])
+            temp_score.append([t_score, j - 1, sub])  # 23*k scores with their parents
+
+    temp_score.sort(key=lambda tup: tup[0], reverse=True)  # sort by j_score
+    for sub in range(0, k):  # get top k best
+        states.append(temp_score[sub])
+    layer.append(states)
+    layers.append(layer)
+
+    # backtracking
+    parent_index = 0    # only 1 state in STOP
+    parent_sub = k-1   # kth best score in STOP layer
+    for i in range(n+1, 1, -1):  # index range from N to 2
+        a = layers[i][parent_index][parent_sub][1]
+        b = layers[i][parent_index][parent_sub][2]
+        Y.insert(0, l[a + 1])  # 1-23
+        parent_index = a
+        parent_sub = b
+    return Y
+
+
+def viterbiTopK(obs_space, e_param, t_param, count, k):
+    dev_file = open('dev.in', 'r')
+    out_file = open('dev.p4.out', 'w')
+    X = []
+    for r in dev_file:
+        r = r.strip()
+        if (r == ''):
+            # end of a sequence
+            Y = viterbi(X, k)
+            for i in range(0, len(X)):
+                out_file.write('' + X[i] + " " + Y[i] + '\n')
+            out_file.write('\n')
+            X = []
+        else:
+            X.append(r)
+
+
+obs_space, e_param, t_param, count = train()
+k = 3 ## top 3 best
+viterbiTopK(obs_space, e_param, t_param, count, k)
